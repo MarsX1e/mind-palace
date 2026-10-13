@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>思维殿堂</title>
+<style>
+:root { --主色:#2f6fed; --底:#f4f5f7; --卡:#fff; --字:#1c1e21; --灰:#8a8f99; }
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--底); color:var(--字); padding-bottom:64px; }
+header { position:sticky; top:0; z-index:9; background:var(--主色); color:#fff; padding:14px 16px; font-size:17px; font-weight:600; display:flex; align-items:center; gap:10px; }
+.badge { background:#ff5757; border-radius:12px; padding:1px 9px; font-size:13px; }
+main { padding:12px; }
+.tabbar { position:fixed; bottom:0; left:0; right:0; display:flex; background:#fff; border-top:1px solid #e3e5e8; z-index:9; }
+.tabbar div { flex:1; text-align:center; padding:10px 0 14px; color:var(--灰); font-size:13px; cursor:pointer; }
+.tabbar div.on { color:var(--主色); font-weight:600; }
+.page { display:none; } .page.on { display:block; }
+.card { background:var(--卡); border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+button { background:var(--主色); color:#fff; border:0; border-radius:10px; padding:12px 18px; font-size:15px; cursor:pointer; }
+button.ghost { background:#eceff3; color:var(--字); }
+button:disabled { opacity:.5; }
+input[type=text], textarea { width:100%; border:1px solid #dde1e6; border-radius:10px; padding:11px; font-size:15px; background:#fff; }
+textarea { min-height:80px; resize:vertical; }
+.vitem { display:flex; justify-content:space-between; align-items:center; padding:13px 4px; border-bottom:1px solid #eee; cursor:pointer; gap:8px; }
+.vitem .名 { font-size:15px; word-break:break-all; }
+.vitem .标 { flex-shrink:0; font-size:12px; color:#fff; background:#ff5757; border-radius:8px; padding:2px 8px; }
+.vitem .标.ok { background:#3dbb6b; }
+video { width:100%; border-radius:10px; background:#000; max-height:46vh; }
+/* 写描述页：横向视频条 */
+#视频条 { display:flex; gap:8px; overflow-x:auto; padding:4px 12px 10px; -webkit-overflow-scrolling:touch; }
+.strip { flex-shrink:0; width:86px; cursor:pointer; }
+.strip .图 { width:86px; height:60px; border-radius:8px; background:#2b2f36; color:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; font-size:15px; border:2px solid transparent; position:relative; }
+.strip .图 img { width:100%; height:100%; object-fit:cover; }
+.strip.cur .图 { border-color:var(--主色); }
+.strip .图 .未标 { position:absolute; top:3px; right:3px; width:10px; height:10px; border-radius:50%; background:#ff5757; }
+.strip .名 { font-size:11px; color:var(--灰); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.strip.cur .名 { color:var(--主色); font-weight:600; }
+.回答 { white-space:pre-wrap; line-height:1.7; font-size:15px; }
+.photogrid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.photogrid img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; cursor:pointer; background:#e7eaee; }
+.vitem2 { display:flex; gap:10px; align-items:center; padding:10px 4px; border-bottom:1px solid #eee; cursor:pointer; }
+.vitem2 { display:flex; gap:10px; align-items:center; padding:10px 4px; border-bottom:1px solid #eee; cursor:pointer; }
+.vitem2 .三角 { flex-shrink:0; width:46px; height:46px; border-radius:10px; background:#2b2f36; color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; overflow:hidden; }
+.vitem2 .文 { min-width:0; flex:1; }
+.vitem2 .名 { font-size:14px; word-break:break-all; }
+.vitem2 .描 { font-size:12px; color:var(--灰); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vitem2 .三角 img { width:100%; height:100%; object-fit:cover; }
+.ditem { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 4px; border-bottom:1px solid #eee; }
+.ditem .名 { font-size:15px; word-break:break-all; }
+.ditem button { flex-shrink:0; padding:8px 14px; font-size:14px; }
+.ritem { display:flex; gap:10px; align-items:center; padding:11px 4px; border-bottom:1px solid #eee; cursor:pointer; }
+.ritem .页 { flex-shrink:0; background:#fff4e5; color:#b26a00; border-radius:8px; padding:4px 10px; font-size:13px; font-weight:600; }
+.ritem .文 { min-width:0; font-size:13px; color:var(--灰); }
+#lightbox { position:fixed; inset:0; background:rgba(0,0,0,.92); display:none; z-index:100; flex-direction:column; }
+#lightbox img { max-width:100%; max-height:82vh; object-fit:contain; margin:auto; }
+#lightbox video { max-width:100%; max-height:70vh; margin:auto; display:none; }
+#lightbox .cap { color:#fff; padding:10px 16px; font-size:14px; text-align:center; }
+#lightbox button { margin:0 16px 16px; }
+.muted { color:var(--灰); font-size:13px; }
+.row { display:flex; gap:10px; margin-top:10px; }
+.row button { flex:1; }
+.upbtn { display:block; text-align:center; padding:18px; border:2px dashed #c4cad2; border-radius:12px; color:var(--主色); font-size:16px; cursor:pointer; background:#fff; }
+.prog { height:6px; background:#e7eaee; border-radius:3px; margin-top:6px; overflow:hidden; }
+.prog i { display:block; height:100%; background:var(--主色); width:0; }
+#toast { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,.75); color:#fff; padding:12px 20px; border-radius:10px; display:none; z-index:99; font-size:15px; }
+</style>
+</head>
+<body>
+<header>🏛 思维殿堂 <span id="未描述徽标" class="badge" style="display:none"></span></header>
+<main>
+  <!-- 查询页 -->
+  <div class="page on" id="page-search">
+    <div class="card">
+      <input type="text" id="问题" placeholder="问知识库，如：我有哪些西藏的照片？">
+      <div class="row"><button onclick="提问()">查询</button></div>
+    </div>
+    <div class="card" id="回答卡" style="display:none">
+      <div class="回答" id="回答"></div>
+      <div id="照片墙" style="display:none">
+        <div class="muted" style="margin:10px 0 8px" id="照片墙标题"></div>
+        <div class="photogrid" id="照片网格"></div>
+      </div>
+      <div id="视频墙" style="display:none">
+        <div class="muted" style="margin:14px 0 8px" id="视频墙标题"></div>
+        <div id="视频列表"></div>
+      </div>
+      <div id="书籍墙" style="display:none">
+        <div class="muted" style="margin:14px 0 8px" id="书籍墙标题"></div>
+        <div id="书籍列表"></div>
+      </div>
+      <div id="引用墙" style="display:none">
+        <div class="muted" style="margin:14px 0 8px">📌 精确出处（点击直达该页）：</div>
+        <div id="引用列表"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 待描述页 -->
+  <div class="page" id="page-desc">
+    <div class="card" style="padding:10px 14px">
+      <div class="muted" id="描述统计">加载中…</div>
+      <div class="row" style="margin-top:8px"><button class="ghost" style="padding:8px" onclick="刷新列表()">🔄 刷新</button>
+      <button class="ghost" style="padding:8px" onclick="显示全部视频=!显示全部视频;刷新列表()">未描述/全部</button></div>
+    </div>
+    <div id="视频条"></div>
+    <div class="card" id="播放卡" style="display:none">
+      <div class="muted" id="当前视频名" style="margin-bottom:8px"></div>
+      <video id="播放器" controls playsinline preload="auto"></video>
+      <textarea id="描述输入" placeholder="边看边写描述：地点、景物、人物、事件…" style="margin-top:10px"></textarea>
+      <div class="row">
+        <button class="ghost" onclick="保存描述(false)">保存</button>
+        <button onclick="保存描述(true)">保存并下一个 ⏭</button>
+      </div>
+    </div>
+    <div class="card" id="完成卡" style="display:none;text-align:center;padding:30px">
+      <div style="font-size:40px">🎉</div>
+      <div style="margin-top:8px">全部视频都描述完了！</div>
+    </div>
+  </div>
+
+  <!-- 上传页 -->
+  <div class="page" id="page-upload">
+    <div class="card">
+      <label class="upbtn">📷 选择照片/视频上传（可多选）
+        <input type="file" id="文件选择" accept="image/*,video/*" multiple style="display:none">
+      </label>
+      <div id="上传进度"></div>
+      <div class="row"><button class="ghost" onclick="重新处理()">🔁 重新识图并更新索引</button></div>
+      <div class="muted" id="任务日志" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:6px">🧹 重复影像清理</div>
+      <div class="muted" id="查重说明">上传时已自动跳过重复。这里可以扫描库里已有的重复（内容相同，或同一张图被压缩/改过尺寸），确认后移入"已删除重复"文件夹，随时可恢复。</div>
+      <div class="row">
+        <button class="ghost" onclick="扫描重复()">扫描重复</button>
+        <button onclick="清理重复()">清理重复</button>
+      </div>
+      <div class="row"><button class="ghost" onclick="重建指纹库()">重建指纹库（新导入的资料先点这个）</button></div>
+      <div id="查重结果" style="margin-top:8px"></div>
+    </div>
+  </div>
+</main>
+
+<div class="tabbar">
+  <div class="on" data-p="page-search" onclick="切页(this)">🔍<br>查询</div>
+  <div data-p="page-desc" onclick="切页(this)">🎬<br>写描述</div>
+  <div data-p="page-upload" onclick="切页(this)">⬆️<br>上传</div>
+</div>
+<div id="lightbox" onclick="if(event.target===this)关闭灯箱()">
+  <img src="">
+  <video controls playsinline></video>
+  <div class="cap"></div>
+  <button onclick="关闭灯箱()">关闭 ✕</button>
+</div>
+<div id="toast"></div>
+
+<script>
+let 密码 = localStorage.getItem("kb_token") || "";
+let 当前视频 = "";
+let 显示全部视频 = false;
+const $ = id => document.getElementById(id);
+
+async function api(路径, 选项={}) {
+  选项.headers = Object.assign({"X-Token": 密码}, 选项.headers||{});
+  let r = await fetch(路径, 选项);
+  if (r.status === 429) { alert("密码输入错误次数过多，请过 10 分钟再试"); throw new Error("已被临时锁定"); }
+  if (r.status === 401) {
+    密码 = prompt("请输入访问密码：") || "";
+    localStorage.setItem("kb_token", 密码);
+    选项.headers["X-Token"] = 密码;
+    r = await fetch(路径, 选项);
+    if (r.status === 429) { alert("密码输入错误次数过多，请过 10 分钟再试"); throw new Error("已被临时锁定"); }
+  }
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+function toast(s){ const t=$("toast"); t.textContent=s; t.style.display="block"; setTimeout(()=>t.style.display="none",1800); }
+// <img>/<video>/PDF 这些标签无法设置请求头，只能把密码放进网址参数
+function 带密码(u){ return u + (u.indexOf("?")>=0 ? "&" : "?") + "token=" + encodeURIComponent(密码); }
+function 切页(el){ document.querySelectorAll(".page").forEach(p=>p.classList.remove("on")); $(el.dataset.p).classList.add("on"); document.querySelectorAll(".tabbar div").forEach(d=>d.classList.remove("on")); el.classList.add("on");
+  if(el.dataset.p==="page-desc"){ (async()=>{ await 刷新列表(); const l=当前视频列表;
+    if(l.length && (!当前视频 || !l.some(x=>x.名===当前视频))) 打开视频(l.find(x=>!x.已描述)||l[0]); })(); } }
+
+async function 刷新徽标(){
+  try{ const s = await api("/api/stats");
+    const b = $("未描述徽标");
+    if(s.未描述>0){ b.style.display=""; b.textContent = s.未描述 + "个视频待描述"; } else b.style.display="none";
+    $("描述统计").textContent = `共 ${s.视频总数} 个视频，已描述 ${s.已描述}，未描述 ${s.未描述}；照片 ${s.照片数} 张`;
+  }catch(e){}
+}
+
+async function 提问(){
+  const q = $("问题").value.trim(); if(!q) return;
+  $("回答卡").style.display="block"; $("回答").textContent="检索中…";
+  $("照片墙").style.display="none"; $("照片网格").innerHTML="";
+  try{ const r = await api("/api/search?q="+encodeURIComponent(q)); $("回答").textContent = r.回答;
+    let ps = r.照片 || [];
+    if(!ps.length){ try{ ps = await api("/api/photos?q="+encodeURIComponent(q)); }catch(e){} }
+    $("照片墙").style.display="none"; $("视频墙").style.display="none";
+    $("照片网格").innerHTML=""; $("视频列表").innerHTML="";
+    if(ps.length){
+      $("照片墙").style.display="block";
+      $("照片墙标题").textContent = "📷 相关照片 " + ps.length + " 张（点开看大图）：";
+      ps.forEach(p=>{
+        const img = document.createElement("img");
+        img.src = 带密码("/api/thumb/"+encodeURIComponent(p.名));
+        img.loading = "lazy";
+        img.onclick = ()=>看大图(p);
+        $("照片网格").appendChild(img);
+      });
+    }
+    const vs = r.视频 || [];
+    if(vs.length){
+      $("视频墙").style.display="block";
+      $("视频墙标题").textContent = "🎬 相关视频 " + vs.length + " 个（点开播放）：";
+      vs.forEach(v=>{
+        const d = document.createElement("div"); d.className="vitem2";
+        d.innerHTML = '<div class="三角"><img src="'+带密码("/api/vthumb/"+encodeURIComponent(v.名))+'" onerror="this.parentNode.textContent=\'▶\'"></div><div class="文"><div class="名">'+v.名+'</div><div class="描">'+(v.描述||"无描述")+'</div></div>';
+        d.onclick = ()=>看视频(v);
+        $("视频列表").appendChild(d);
+      });
+    }
+    const bs = r.书籍 || [];
+    $("引用墙").style.display="none"; $("引用列表").innerHTML="";
+    const rs = r.引用 || [];
+    if(rs.length){
+      $("引用墙").style.display="block";
+      rs.forEach(x=>{
+        const d = document.createElement("div"); d.className="ritem";
+        d.innerHTML = '<div class="页">第'+x.页+'页</div><div class="文">📄 '+x.名+(x.说明 ? ' — '+x.说明 : '')+'</div>';
+        d.onclick = ()=>window.open(带密码("/api/doc/"+encodeURIComponent(x.名))+"#page="+x.页);
+        $("引用列表").appendChild(d);
+      });
+    }
+    if(bs.length){
+      $("书籍墙").style.display="block";
+      $("书籍墙标题").textContent = "📄 相关资料 " + bs.length + " 份（点击看全文）：";
+      bs.forEach(b=>{
+        const d = document.createElement("div"); d.className="ditem";
+        d.innerHTML = '<div class="名">📄 '+b.名+'</div><button>打开全文</button>';
+        d.querySelector("button").onclick = ()=>window.open(带密码("/api/doc/"+encodeURIComponent(b.名)));
+        $("书籍列表").appendChild(d);
+      });
+    }
+  }
+  catch(e){ $("回答").textContent = "出错："+e.message; }
+}
+function 看大图(p){
+  const lb = $("lightbox");
+  lb.querySelector("video").style.display="none"; lb.querySelector("video").pause();
+  const img = lb.querySelector("img"); img.style.display="block";
+  img.src = 带密码("/api/photo/"+encodeURIComponent(p.名));
+  lb.querySelector(".cap").textContent = p.名 + " —— " + (p.描述||"");
+  lb.style.display = "flex";
+}
+function 看视频(v){
+  const lb = $("lightbox");
+  lb.querySelector("img").style.display="none";
+  const vid = lb.querySelector("video"); vid.style.display="block";
+  vid.src = 带密码("/api/video/"+encodeURIComponent(v.名));
+  vid.play();
+  lb.querySelector(".cap").textContent = v.名 + " —— " + (v.描述||"");
+  lb.style.display = "flex";
+}
+function 关闭灯箱(){
+  const lb = $("lightbox");
+  const vid = lb.querySelector("video"); vid.pause(); vid.src="";
+  lb.style.display="none";
+}
+
+let 当前视频列表 = [];
+async function 刷新列表(){
+  刷新徽标();
+  try{
+    const list = await api("/api/videos"+(显示全部视频?"":"?只看未描述=1"));
+    当前视频列表 = list;
+    const box = $("视频条"); box.innerHTML = "";
+    $("完成卡").style.display = "none";
+    if(!list.length){
+      if(!显示全部视频){ $("完成卡").style.display="block"; $("播放卡").style.display="none"; }
+      return;
+    }
+    list.forEach((v,i)=>{
+      const d = document.createElement("div"); d.className="strip"; d.id="strip_"+i;
+      d.innerHTML = '<div class="图">'+(v.已描述?'':'<span class="未标"></span>')+
+        '<img src="'+带密码("/api/vthumb/"+encodeURIComponent(v.名))+'" onerror="this.parentNode.innerHTML=(this.parentNode.querySelector(\'.未标\')?\'<span class=未标></span>\':\'\')+\'▶\'">'+
+        '</div><div class="名">'+v.名+'</div>';
+      d.onclick = ()=>打开视频(v);
+      box.appendChild(d);
+    });
+  }catch(e){ toast("加载失败"); }
+}
+
+function 打开视频(v){
+  当前视频 = v.名;
+  $("播放卡").style.display="block";
+  $("完成卡").style.display="none";
+  $("当前视频名").textContent = v.名;
+  $("描述输入").value = v.描述 || "";
+  const vid = $("播放器");
+  vid.src = 带密码("/api/video/"+encodeURIComponent(v.名));
+  vid.muted = true;             // 静音才能自动播放
+  vid.play().catch(()=>{});     // 点哪条立即播
+  document.querySelectorAll(".strip").forEach(s=>s.classList.remove("cur"));
+  const i = 当前视频列表.findIndex(x=>x.名===v.名);
+  if(i>=0){ const el = $("strip_"+i); if(el){ el.classList.add("cur"); el.scrollIntoView({behavior:"smooth", inline:"center", block:"nearest"}); } }
+  $("播放卡").scrollIntoView({behavior:"smooth"});
+}
+
+async function 保存描述(下一个){
+  if(!当前视频) return;
+  const 描述 = $("描述输入").value.trim();
+  try{
+    await api("/api/describe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({名:当前视频,描述})});
+    toast("已保存 ✓");
+    if(下一个){
+      const i = 当前视频列表.findIndex(x=>x.名===当前视频);
+      const rest = 当前视频列表.slice(i+1).filter(x=>!x.已描述 || x.名!==当前视频);
+      const 下一个视频 = 当前视频列表.slice(i+1).find(x=>!x.已描述);
+      if(下一个视频){ 打开视频(下一个视频); 刷新列表(); }
+      else { const list = await api("/api/videos?只看未描述=1"); if(list.length){ 刷新列表(); 打开视频(list[0]); } else { $("播放卡").style.display="none"; $("完成卡").style.display="block"; 刷新徽标(); } }
+    }
+    刷新徽标();
+  }catch(e){ toast("保存失败"); }
+}
+
+$("文件选择").addEventListener("change", async e=>{
+  const files = [...e.target.files]; if(!files.length) return;
+  const box = $("上传进度"); box.innerHTML="";
+  let done=0;
+  for(const f of files){
+    const row = document.createElement("div");
+    row.innerHTML = `<div class="muted">${f.name}（${(f.size/1048576).toFixed(1)}MB）</div><div class="prog"><i></i></div>`;
+    box.appendChild(row);
+    const bar = row.querySelector("i");
+    let 结果 = {};
+    await new Promise((res,rej)=>{
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT","/api/upload/"+encodeURIComponent(f.name));
+      xhr.setRequestHeader("X-Token",密码);
+      xhr.setRequestHeader("Content-Type","application/octet-stream");
+      xhr.upload.onprogress = ev=>{ if(ev.lengthComputable) bar.style.width = (ev.loaded/ev.total*100)+"%"; };
+      xhr.onload = ()=>{ bar.style.width="100%";
+        try{ 结果 = JSON.parse(xhr.responseText||"{}"); }catch(e){}
+        const 提示 = row.querySelector(".muted");
+        if(结果.跳过){ 提示.innerHTML = "⏭ " + f.name + " —— <b style='color:#3dbb6b'>重复，已跳过</b><br><span style='font-size:12px'>"+ (结果.说明||"") +"</span>"; }
+        res(); };
+      xhr.onerror = rej;
+      xhr.send(f);
+    });
+    done++;
+    if(!结果.跳过) toast(`已上传 ${done}/${files.length}`);
+  }
+  e.target.value=""; 轮询任务();
+});
+
+async function 重新处理(){ await api("/api/rebuild",{method:"POST"}); toast("已开始处理"); 轮询任务(); }
+
+async function 重建指纹库(){
+  await api("/api/fingerprint/rebuild",{method:"POST"});
+  $("查重结果").innerHTML = '<div class="muted">⏳ 正在读取所有影像建立指纹（首次较慢，几分钟）…</div>';
+  轮询指纹();
+}
+async function 轮询指纹(){
+  const s = await api("/api/fingerprint/status");
+  if(s.运行中){ $("查重结果").innerHTML = '<div class="muted">⏳ 建立指纹库中…<br>'+(s.日志||"").replace(/\n/g,"<br>")+'</div>'; setTimeout(轮询指纹, 4000); }
+  else { $("查重结果").innerHTML = '<div class="muted">✅ 指纹库已更新：<br>'+(s.日志||"").replace(/\n/g,"<br>")+'</div>'; }
+}
+async function 扫描重复(){
+  $("查重结果").innerHTML = '<div class="muted">扫描中…</div>';
+  const r = await api("/api/duplicates");
+  if(r.建库中){ $("查重结果").innerHTML = '<div class="muted">指纹库正在建立，请稍候…</div>'; return; }
+  if(r.未建库){ $("查重结果").innerHTML = '<div class="muted">还没建立指纹库，请先点上面的「重建指纹库」。</div>'; return; }
+  if(!r.总数){ $("查重结果").innerHTML = '<div class="muted">✅ 没有发现重复的影像</div>'; return; }
+  let html = '<div class="muted">发现 '+r.组.length+' 组重复，共 <b>'+r.总数+'</b> 个多余文件：</div>';
+  r.组.slice(0,40).forEach(g=>{
+    html += '<div style="margin-top:8px;font-size:13px"><b>保留：</b>'+g.保留+'<br><span style="color:#8a8f99">重复：'+g.重复.join("、")+'</span></div>';
+  });
+  if(r.组.length>40) html += '<div class="muted">…还有 '+(r.组.length-40)+' 组</div>';
+  html += '<div class="muted" style="margin-top:10px">确认无误后点上方「清理重复」，文件会移到 00-影像资料\\已删除重复\\，可随时恢复。</div>';
+  $("查重结果").innerHTML = html;
+}
+async function 清理重复(){
+  if(!confirm("确定把重复的影像移入「已删除重复」文件夹吗？（不会真正删除，可随时恢复）")) return;
+  const r = await api("/api/dedupe",{method:"POST"});
+  $("查重结果").innerHTML = '<div class="muted">✅ 已移动 <b>'+r.移动+'</b> 个重复文件到：<br>'+r.回收目录+'</div>';
+  刷新徽标();
+}
+async function 轮询任务(){
+  const t = await api("/api/tasks");
+  $("任务日志").textContent = t.运行中 ? "⏳ 后台处理中：AI识图 + 更新索引…" : "";
+  if(t.运行中) setTimeout(轮询任务, 4000); else 刷新徽标();
+}
+刷新徽标();
+</script>
+</body>
+</html>

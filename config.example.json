@@ -1,0 +1,14 @@
+{
+  "DeepSeekKey": "",
+  "阿里云Key": "",
+  "高德Key": "",
+  "识图模型": "qwen3-vl-plus",
+  "访问密码": "",
+  "_说明": {
+    "DeepSeekKey": "https://platform.deepseek.com 申请，AI 问答用（必需）",
+    "阿里云Key": "https://bailian.console.aliyun.com 申请，照片 AI 识图用（可选）",
+    "高德Key": "https://lbs.amap.com 申请，注意服务平台要选『Web服务』，用于把 GPS 转成地名（可选）",
+    "识图模型": "阿里云百炼的视觉模型 ID，默认 qwen3-vl-plus",
+    "访问密码": "打开网页时的密码；留空表示不校验（仅建议在本地或可信网络这样）"
+  }
+}

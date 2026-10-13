@@ -1,0 +1,50 @@
+# ===== 敏感文件：绝对不要提交 =====
+config.json
+server/deepseek_key.txt
+server/access_token.txt
+server/cert.pem
+server/key.pem
+server/*.crt
+*.key
+*.pem
+
+# ===== 你的个人资料（只保留空目录结构）=====
+00-影像资料/照片原图/*
+00-影像资料/视频原图/*
+00-影像资料/已删除重复/*
+00-影像资料/索引/*
+!00-影像资料/照片原图/.gitkeep
+!00-影像资料/视频原图/.gitkeep
+!00-影像资料/索引/.gitkeep
+01-书籍扫描/待OCR/*
+01-书籍扫描/已OCR/*
+!01-书籍扫描/待OCR/.gitkeep
+!01-书籍扫描/已OCR/.gitkeep
+02-笔记/*
+03-素材卡片/*
+04-写作项目/*
+05-AI问答导出/*
+!02-笔记/.gitkeep
+!03-素材卡片/.gitkeep
+!04-写作项目/.gitkeep
+!05-AI问答导出/.gitkeep
+
+# ===== 运行时产物与缓存 =====
+__pycache__/
+*.pyc
+server/server.log
+server/static/_check_*.js
+*.tmp
+
+# ===== 第三方二进制（请自行下载）=====
+tools/ffmpeg.exe
+tools/ffprobe.exe
+tools/exiftool.exe
+tools/exiftool_files/
+
+# ===== 系统垃圾 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
