@@ -16,6 +16,7 @@ r"""
 """
 
 import base64
+import hashlib
 import io
 import json
 import os
@@ -49,7 +50,19 @@ BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
 照片目录 = os.path.normpath(os.path.join(脚本目录, "..", "00-影像资料", "照片原图"))
 输出目录 = os.path.normpath(os.path.join(脚本目录, "..", "00-影像资料", "索引"))
 缓存文件 = os.path.join(输出目录, "识图缓存.json")
+md5缓存文件 = os.path.join(输出目录, "识图缓存_md5.json")   # {文件内容md5: 描述}，防止同一张图重复调用
 输出文件 = os.path.join(输出目录, "AI识图描述.md")
+
+
+def 算md5(路径):
+    哈希 = hashlib.md5()
+    with open(路径, "rb") as f:
+        while True:
+            块 = f.read(1024 * 1024)
+            if not 块:
+                break
+            哈希.update(块)
+    return 哈希.hexdigest()
 
 支持的扩展名 = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 提示词 = ("用一句话简要描述这张照片：拍摄的地点特征、主要景物、人物活动（50字以内，中文）。"
@@ -119,6 +132,15 @@ def 主流程():
         with open(缓存文件, encoding="utf-8") as f:
             缓存 = json.load(f)
 
+    # 内容指纹缓存：同一张照片（内容相同、文件名不同）直接复用已有描述，不再花钱调用
+    缓存md5 = {}
+    if os.path.exists(md5缓存文件):
+        try:
+            with open(md5缓存文件, encoding="utf-8") as f:
+                缓存md5 = json.load(f)
+        except Exception:
+            缓存md5 = {}
+
     照片列表 = []
     for 目录路径, _, 文件名列表 in os.walk(照片目录):
         for 文件名 in 文件名列表:
@@ -129,10 +151,40 @@ def 主流程():
 
     结果 = dict(缓存)          # {路径: 描述}
     失败 = []
+    复用 = 0
+
+    # 一次性迁移：给历史上已识别的照片补算内容指纹（只读本地文件，不调用 API）
+    if 结果 and not 缓存md5:
+        补算 = 0
+        for 路径, 描述 in list(结果.items()):
+            if not os.path.isfile(路径):
+                continue
+            try:
+                缓存md5[算md5(路径)] = 描述
+                补算 += 1
+            except Exception:
+                pass
+        if 补算:
+            print(f"已为 {补算} 张历史照片补算内容指纹（不花钱，之后同图不再重复调用）")
+            with open(md5缓存文件, "w", encoding="utf-8") as f:
+                json.dump(缓存md5, f, ensure_ascii=False, indent=1)
+
     致命中断 = ""
     for i, 路径 in enumerate(照片列表, 1):
         if 路径 in 结果:
-            continue  # 缓存命中，不重复扣费
+            continue  # 路径级缓存命中，不重复扣费
+
+        # ---- 第一道省钱关卡：按文件内容指纹查重 ----
+        try:
+            指纹 = 算md5(路径)
+        except Exception:
+            指纹 = ""
+        if 指纹 and 指纹 in 缓存md5:
+            结果[路径] = 缓存md5[指纹]
+            复用 += 1
+            print(f"[{i}/{len(照片列表)}] {os.path.basename(路径)}: 与已识别的照片内容相同，复用描述（省下一次调用）")
+            continue
+
         描述 = None
         for 尝试 in range(1, 支持的重试次数 + 1):
             try:
@@ -153,15 +205,21 @@ def 主流程():
             break
         if 描述 is not None:
             结果[路径] = 描述
+            if 指纹:
+                缓存md5[指纹] = 描述      # 记住"这张图长什么样"，下次同图不再调用
             print(f"[{i}/{len(照片列表)}] {os.path.basename(路径)}: {描述}")
             time.sleep(0.3)  # 控制频率
         # 每10张存一次缓存，中断也不丢进度
         if i % 10 == 0:
             with open(缓存文件, "w", encoding="utf-8") as f:
                 json.dump(结果, f, ensure_ascii=False, indent=1)
+            with open(md5缓存文件, "w", encoding="utf-8") as f:
+                json.dump(缓存md5, f, ensure_ascii=False, indent=1)
 
     with open(缓存文件, "w", encoding="utf-8") as f:
         json.dump(结果, f, ensure_ascii=False, indent=1)
+    with open(md5缓存文件, "w", encoding="utf-8") as f:
+        json.dump(缓存md5, f, ensure_ascii=False, indent=1)
 
     with open(输出文件, "w", encoding="utf-8") as f:
         f.write("# AI识图描述（由视觉模型自动生成）\n\n")
@@ -180,7 +238,7 @@ def 主流程():
     elif os.path.exists(清单文件):
         os.remove(清单文件)
 
-    print(f"\n完成！已识别 {len(结果)} 张，未完成 {len(未完成)} 张。")
+    print(f"\n完成！已识别 {len(结果)} 张（其中 {复用} 张复用了已有描述、没花 token），未完成 {len(未完成)} 张。")
     if 致命中断:
         print(f"中断原因：{致命中断}")
         print("→ 给阿里云百炼账号充值/检查 Key 后，重新运行本脚本即可；")
