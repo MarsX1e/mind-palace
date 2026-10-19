@@ -130,6 +130,12 @@ video { width:100%; border-radius:10px; background:#000; max-height:46vh; }
       <div class="muted" id="任务日志" style="margin-top:8px"></div>
     </div>
     <div class="card">
+      <div style="font-weight:600;margin-bottom:6px">🧠 智能检索（RAG）</div>
+      <div class="muted">把书籍/笔记/影像描述切段向量化，提问时只检索最相关的片段。支持跨语言（中文问、外文原文也能命中），且不受资料总量限制。</div>
+      <div class="row"><button onclick="重建检索索引()">建立/更新检索索引</button></div>
+      <div class="muted" id="索引状态" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
       <div style="font-weight:600;margin-bottom:6px">🧹 重复影像清理</div>
       <div class="muted" id="查重说明">上传时已自动跳过重复。这里可以扫描库里已有的重复（内容相同，或同一张图被压缩/改过尺寸），确认后移入"已删除重复"文件夹，随时可恢复。</div>
       <div class="row">
@@ -386,6 +392,26 @@ async function 清理重复(){
   const r = await api("/api/dedupe",{method:"POST"});
   $("查重结果").innerHTML = '<div class="muted">✅ 已移动 <b>'+r.移动+'</b> 个重复文件到：<br>'+r.回收目录+'</div>';
   刷新徽标();
+}
+async function 重建检索索引(){
+  await api("/api/reindex",{method:"POST"});
+  $("索引状态").textContent = "⏳ 正在建立检索索引（首次较慢，之后只处理新增内容）…";
+  轮询索引();
+}
+async function 轮询索引(){
+  try{
+    const s = await api("/api/reindex/status");
+    if(s.运行中){
+      const 末行 = (s.日志||"处理中…").split("\n").filter(x=>x.trim()).pop() || "处理中…";
+      $("索引状态").textContent = "⏳ " + 末行;
+      setTimeout(轮询索引, 3000);
+    } else if(s.已建索引){
+      const 分类 = Object.entries(s.分类||{}).map(([k,v])=>k+v).join("、");
+      $("索引状态").textContent = `✅ 检索索引：${s.段数} 段` + (分类?`（${分类}）`:"");
+    } else {
+      $("索引状态").textContent = "尚未建立检索索引（此时问答会用「全量资料」模式，资料多时可能不全）";
+    }
+  }catch(e){ $("索引状态").textContent = "查询索引状态失败"; }
 }
 async function 轮询任务(){
   const t = await api("/api/tasks");

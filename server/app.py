@@ -28,6 +28,7 @@ import sys as _sys
 if config.脚本目录 not in _sys.path:
     _sys.path.insert(0, config.脚本目录)
 import 影像指纹 as 指纹  # noqa: E402  （去重指纹模块，放在 tools 目录）
+import 知识检索 as 检索  # noqa: E402  （向量检索模块，放在 tools 目录）
 
 app = FastAPI(title="思维殿堂")
 
@@ -101,12 +102,30 @@ def 触发处理():
                 任务状态["待处理"] = False
                 跑脚本([sys.executable, os.path.join(config.脚本目录, "照片视频识图.py")])
                 跑脚本([sys.executable, os.path.join(config.脚本目录, "影像建索引.py")])
+                跑脚本([sys.executable, os.path.join(config.脚本目录, "知识检索.py")])
                 if not 任务状态["待处理"]:
                     break
         finally:
             任务状态["运行中"] = False
 
     threading.Thread(target=循环跑).start()
+
+
+def 触发索引重建():
+    """只重建向量检索索引（不跑识图），用于书籍/笔记新增后"""
+    if 任务状态["运行中"]:
+        任务状态["待处理"] = True
+        return
+    import sys
+
+    def 跑():
+        任务状态["运行中"] = True
+        try:
+            跑脚本([sys.executable, os.path.join(config.脚本目录, "知识检索.py")])
+        finally:
+            任务状态["运行中"] = False
+
+    threading.Thread(target=跑).start()
 
 
 # ---------------- 视频描述读写 ----------------
@@ -312,6 +331,24 @@ def 任务(_=Depends(校验密码)):
 def 手动重建(_=Depends(校验密码)):
     触发处理()
     return {"ok": True, "运行中": 任务状态["运行中"]}
+
+
+# ---------------- 向量检索索引 ----------------
+@app.post("/api/reindex")
+def 重建检索索引(_=Depends(校验密码)):
+    触发索引重建()
+    return {"ok": True, "运行中": 任务状态["运行中"]}
+
+
+@app.get("/api/reindex/status")
+def 检索索引状态(_=Depends(校验密码)):
+    块们, 矩阵 = 检索.读索引()
+    分类 = {}
+    for 块 in 块们:
+        分类[块.get("类型", "其他")] = 分类.get(块.get("类型", "其他"), 0) + 1
+    return {"段数": len(块们), "分类": 分类,
+            "已建索引": bool(块们),
+            "运行中": 任务状态["运行中"], "日志": 任务状态["日志"]}
 
 
 # ---------------- 照片搜索与显示 ----------------
@@ -532,20 +569,34 @@ def 收集资料():
 def 查询(q: str, _=Depends(校验密码)):
     if not config.DeepSeekKey:
         return {"回答": "未配置 DeepSeek Key。请在 server\\deepseek_key.txt 里写入你的 API Key 后重启服务。", "照片": [], "视频": [], "书籍": [], "引用": []}
-    资料 = 收集资料()
+
+    # 优先用向量检索（RAG）：只把最相关片段交给 AI，跨语言、可无限扩充资料
+    # 检索索引还没建立时，自动退回"全量塞入"的老方式
+    资料 = ""
+    用了检索 = False
+    try:
+        资料 = 检索.检索上下文(q, 条数=20)
+        用了检索 = bool(资料.strip())
+    except Exception:
+        资料 = ""
+    if not 用了检索:
+        资料 = 收集资料()
     if not 资料.strip():
         return {"回答": "知识库里还没有可检索的文字资料。", "照片": [], "视频": [], "书籍": [], "引用": []}
+
+    资料说明 = ("以下是根据你的问题，从知识库中检索出的最相关片段（可能不完整）。"
+              if 用了检索 else "以下是知识库中的全部资料。")
     请求体 = json.dumps({
         "model": "deepseek-chat",
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content":
              "你是个人知识库助手。只根据提供的资料回答，每条结论注明出自哪个文件；"
-             "资料里没有的内容就直说没有，不要编造。用中文回答。\n\n"
-             "另外：资料中有大量照片描述行（格式：文件名.jpg：画面描述），"
-             "以及视频描述行（格式：文件名.mp4：描述）。"
-             "请从中挑出与问题确实相关的照片和视频，各最多 60 个，宁准勿滥。\n\n"
-             "书籍类资料每段文字前都有【第N页】标记。凡是引用书籍内容，必须在回答里注明"
+             "资料里没有的内容就直说没有，不要编造。用中文回答（原文是外语时也用中文说明，必要时附原文）。\n\n"
+             + 资料说明 + "\n\n"
+             "资料中的影像片段格式为：【照片】文件名.jpg（拍摄地点：…）：画面描述，"
+             "或【视频】文件名.mp4：描述。请从中挑出与问题确实相关的照片和视频，各最多 60 个，宁准勿滥。\n\n"
+             "书籍片段形如\"资料片段：文件名.pdf 第N页\"。凡是引用书籍内容，必须在回答里注明"
              "出自哪本书第几页。同时把最关键的出处（最多 10 条）列在 refs 字段，"
              "方便用户直接跳转到该页阅读原文。\n\n"
              "严格输出JSON：{\"answer\": \"回答文字（引用书籍处注明页码）\", "

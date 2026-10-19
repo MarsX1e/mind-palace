@@ -88,12 +88,12 @@ if (-not $python) {
 & $python --version
 
 # ---------- 3. 安装依赖库 ----------
-提示 "正在安装依赖库（fastapi / uvicorn / pypdf / pillow / cryptography）…"
-$pip输出 = & $python -m pip install --disable-pip-version-check --no-input -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com fastapi uvicorn pypdf pillow cryptography 2>&1
+提示 "正在安装依赖库（fastapi / uvicorn / pypdf / pillow / cryptography / numpy）…"
+$pip输出 = & $python -m pip install --disable-pip-version-check --no-input -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com fastapi uvicorn pypdf pillow cryptography numpy 2>&1
 $pip码 = $LASTEXITCODE
 if ($pip码 -ne 0) {
     提示 "阿里云镜像失败（pip 返回 $pip码），改用官方源重试…" "Yellow"
-    $pip输出 = & $python -m pip install --disable-pip-version-check --no-input fastapi uvicorn pypdf pillow cryptography 2>&1
+    $pip输出 = & $python -m pip install --disable-pip-version-check --no-input fastapi uvicorn pypdf pillow cryptography numpy 2>&1
     $pip码 = $LASTEXITCODE
 }
 if ($pip码 -ne 0) {

@@ -38,6 +38,13 @@
 - 三个标签页：**查询 / 写描述 / 上传**，浏览器打开即用，可"添加到主屏幕"当 App
 - 手机直接上传照片视频，后台自动 AI 识图 + 更新索引
 
+### 🧠 智能检索（RAG）
+- 资料切段后用 `text-embedding-v3`（支持 50+ 语言）向量化，提问时只把**最相关的片段**交给 AI
+- **跨语言检索**：用中文提问，也能命中英文/日文等外文原文
+- 不受"上下文长度"限制，书籍从几本扩到几百本都不用改代码
+- 检索结果带**文件名 + 页码**，书籍内容可一键跳转原文
+- 每次提问只送 10-20 段，**token 消耗比全量塞入降低约 90%**
+
 ### 🔒 安全
 - 访问密码 + **登录失败限速**（同一 IP 10 次失败锁定 10 分钟）
 - 支持 **HTTPS（自签名证书）**，传输全程加密
@@ -60,7 +67,7 @@
 ```bash
 git clone https://github.com/MarsX1e/mind-palace knowledge-base
 cd knowledge-base
-pip install fastapi uvicorn pypdf pillow cryptography
+pip install fastapi uvicorn pypdf pillow cryptography numpy
 ```
 
 ### 2. 填入你自己的 API Key（**必须**）
@@ -192,7 +199,7 @@ knowledge-base/
 ## ❓ 常见问题
 
 **Q：报 `ModuleNotFoundError: No module named 'fastapi'`**
-A：`pip install fastapi uvicorn pypdf pillow cryptography`
+A：`pip install fastapi uvicorn pypdf pillow cryptography numpy`
 
 **Q：视频没有封面、不显示首帧**
 A：把 `ffmpeg.exe` 放到 `tools/` 目录（Windows），或 `apt install ffmpeg`（Linux）
