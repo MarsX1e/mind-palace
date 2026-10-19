@@ -351,6 +351,44 @@ def 检索索引状态(_=Depends(校验密码)):
             "运行中": 任务状态["运行中"], "日志": 任务状态["日志"]}
 
 
+# ---------------- 照片文字识别（OCR） ----------------
+def 触发OCR():
+    if 任务状态["运行中"]:
+        任务状态["待处理"] = True
+        return
+    import sys
+
+    def 跑():
+        任务状态["运行中"] = True
+        try:
+            跑脚本([sys.executable, os.path.join(config.脚本目录, "照片OCR.py")])
+            跑脚本([sys.executable, os.path.join(config.脚本目录, "知识检索.py")])
+        finally:
+            任务状态["运行中"] = False
+
+    threading.Thread(target=跑).start()
+
+
+@app.post("/api/ocr")
+def 开始OCR(_=Depends(校验密码)):
+    触发OCR()
+    return {"ok": True, "运行中": 任务状态["运行中"]}
+
+
+@app.get("/api/ocr/status")
+def OCR状态(_=Depends(校验密码)):
+    已处理, 含字 = 0, 0
+    try:
+        with open(os.path.join(config.索引目录, "照片文字.json"), encoding="utf-8") as f:
+            数据 = json.load(f)
+        已处理 = len(数据)
+        含字 = sum(1 for v in 数据.values() if v)
+    except Exception:
+        pass
+    return {"已处理": 已处理, "含文字": 含字,
+            "运行中": 任务状态["运行中"], "日志": 任务状态["日志"]}
+
+
 # ---------------- 照片搜索与显示 ----------------
 缩略图目录 = os.path.join(config.索引目录, "thumbs")
 os.makedirs(缩略图目录, exist_ok=True)

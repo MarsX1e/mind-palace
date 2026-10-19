@@ -40,6 +40,7 @@ import sys
 状态文件 = os.path.join(索引目录, "检索索引_状态.json")
 
 识图缓存 = os.path.join(索引目录, "识图缓存.json")
+照片文字 = os.path.join(索引目录, "照片文字.json")
 视频描述文件 = os.path.join(索引目录, "视频描述.txt")
 影像总目录 = os.path.join(索引目录, "影像总目录.md")
 PDF缓存目录 = os.path.join(索引目录, "pdf文本缓存")
@@ -173,19 +174,28 @@ def 影像块们():
     条目 = []
     地点表 = 解析拍摄地点()
 
-    # 照片
+    # 照片（画面描述 + OCR 出的文字）
     try:
         with open(识图缓存, encoding="utf-8") as f:
             照片描述 = json.load(f)
     except Exception:
         照片描述 = {}
+    try:
+        with open(照片文字, encoding="utf-8") as f:
+            OCR文字 = json.load(f)
+    except Exception:
+        OCR文字 = {}
     for 路径, 描述 in 照片描述.items():
         名 = os.path.basename(路径)
         地点 = 地点表.get(名, "")
         前缀 = f"【照片】{名}"
         if 地点:
             前缀 += f"（拍摄地点：{地点}）"
-        条目.append(f"{前缀}：{描述}")
+        文本 = OCR文字.get(名, "")
+        条目文本 = f"{前缀}：{描述}"
+        if 文本:
+            条目文本 += f"\n    图中文字：{文本[:400]}"
+        条目.append(条目文本)
 
     # 视频
     try:

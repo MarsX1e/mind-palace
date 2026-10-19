@@ -134,6 +134,10 @@ video { width:100%; border-radius:10px; background:#000; max-height:46vh; }
       <div class="muted">把书籍/笔记/影像描述切段向量化，提问时只检索最相关的片段。支持跨语言（中文问、外文原文也能命中），且不受资料总量限制。</div>
       <div class="row"><button onclick="重建检索索引()">建立/更新检索索引</button></div>
       <div class="muted" id="索引状态" style="margin-top:8px"></div>
+      <div style="height:1px;background:#eef1f4;margin:12px 0"></div>
+      <div class="muted">照片里的文字（单据、白板、屏幕、路牌、菜单…）也可以用 OCR 提取出来，之后能按文字搜到照片。</div>
+      <div class="row"><button class="ghost" onclick="开始OCR()">🔤 识别照片文字（OCR）</button></div>
+      <div class="muted" id="OCR状态" style="margin-top:6px"></div>
     </div>
     <div class="card">
       <div style="font-weight:600;margin-bottom:6px">🧹 重复影像清理</div>
@@ -412,6 +416,23 @@ async function 轮询索引(){
       $("索引状态").textContent = "尚未建立检索索引（此时问答会用「全量资料」模式，资料多时可能不全）";
     }
   }catch(e){ $("索引状态").textContent = "查询索引状态失败"; }
+}
+async function 开始OCR(){
+  await api("/api/ocr",{method:"POST"});
+  $("OCR状态").textContent = "⏳ 正在识别照片文字（首次会逐张调用，较慢）…";
+  轮询OCR();
+}
+async function 轮询OCR(){
+  try{
+    const s = await api("/api/ocr/status");
+    if(s.运行中){
+      const 末行 = (s.日志||"处理中…").split("\n").filter(x=>x.trim()).pop() || "处理中…";
+      $("OCR状态").textContent = "⏳ " + 末行;
+      setTimeout(轮询OCR, 4000);
+    } else {
+      $("OCR状态").textContent = `已处理 ${s.已处理} 张照片，其中 ${s.含文字} 张识别出文字`;
+    }
+  }catch(e){}
 }
 async function 轮询任务(){
   const t = await api("/api/tasks");
