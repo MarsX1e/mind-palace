@@ -308,11 +308,12 @@ def 建索引(全量=False, 打印=print):
             新块们.extend(块组)
             行们.extend([None] * len(块组))
 
-    # 影像描述作为一类特殊来源
+    # 影像描述作为一类特殊来源（签名要包含内容摘要，否则 OCR/描述更新后不会重建）
     影像块 = 影像块们()
     if 影像块:
+        import hashlib as _h
         键 = "影像资料"
-        标识 = str(len(影像块))
+        标识 = _h.md5("\n".join(b["文本"] for b in 影像块).encode()).hexdigest()[:16]
         状态[键] = 标识
         可复用 = (not 全量) and 旧状态.get(键) == 标识 and 键 in 旧分组
         if 可复用:

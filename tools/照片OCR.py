@@ -91,6 +91,7 @@ def 识别(路径, 密钥):
         with urllib.request.urlopen(请求, timeout=90) as r:
             数据 = json.loads(r.read().decode())
         文本 = (数据["choices"][0]["message"]["content"] or "").strip()
+        文本 = 清理文字(文本)
         return "" if 文本 in ("-", "—", "", "无") else 文本
     except urllib.error.HTTPError as e:
         正文 = e.read().decode("utf-8", "ignore")
@@ -101,8 +102,44 @@ def 识别(路径, 密钥):
         raise 可重试错误(str(e))
 
 
+def 清理文字(文本):
+    """去掉 qwen-vl-ocr 附带输出的坐标数字，只留真正的文字"""
+    import re
+    if not 文本:
+        return ""
+    # 去掉 4 元组坐标（如 704,746,219,31）
+    文本 = re.sub(r"\b\d{1,5}(?:\s*,\s*\d{1,5}){3}\b", " ", 文本)
+    # 去掉只剩数字和逗号的行
+    行们 = []
+    for 行 in 文本.splitlines():
+        干净 = 行.strip()
+        if not 干净:
+            continue
+        if re.fullmatch(r"[\d\s.,:;\-_/\\|]+", 干净):
+            continue
+        行们.append(干净)
+    结果 = "\n".join(行们)
+    结果 = re.sub(r"[ \t]{2,}", " ", 结果)
+    return 结果.strip()
+
+
 def 主流程():
     重做 = "--重做" in sys.argv
+    仅清理 = "--清理" in sys.argv
+
+    if 仅清理:
+        if not os.path.exists(输出文件):
+            print("还没有 OCR 结果文件，无需清理")
+            return
+        with open(输出文件, encoding="utf-8") as f:
+            数据 = json.load(f)
+        清理后 = {k: 清理文字(v) for k, v in 数据.items()}
+        with open(输出文件, "w", encoding="utf-8") as f:
+            json.dump(清理后, f, ensure_ascii=False, indent=1)
+        含字 = sum(1 for v in 清理后.values() if v)
+        print(f"已清理 {len(清理后)} 条 OCR 结果，其中 {含字} 条含有效文字（未调用任何 API，未产生费用）")
+        return
+
     密钥 = 读密钥()
     if not 密钥:
         print("错误：没有读到阿里云 Key（config.json 的 阿里云Key，或 tools/照片视频识图.py）")

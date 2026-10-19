@@ -40,10 +40,12 @@ try {
     Write-Host "      直接回车 = 第一次部署（完整上传全部资料）" -ForegroundColor White
     Write-Host "      输入 n  = 更新程序和资料" -ForegroundColor White
     Write-Host "      输入 c  = 只更新程序（几秒钟，改了代码后用它）" -ForegroundColor White
+    Write-Host "      输入 i  = 只同步索引（识图/OCR/检索索引，几十秒，不重传照片视频）" -ForegroundColor White
     $回答 = Read-Host "      你的选择"
     $模式 = "完整"
     if ($回答 -eq "n" -or $回答 -eq "N") { $模式 = "全部更新" }
     if ($回答 -eq "c" -or $回答 -eq "C") { $模式 = "只更新程序" }
+    if ($回答 -eq "i" -or $回答 -eq "I") { $模式 = "只同步索引" }
 
     if (-not (Test-Path $本地目录)) { throw "找不到 $本地目录" }
 
@@ -70,6 +72,13 @@ try {
         Write-Host "      下一步会提示输入服务器 Administrator 密码（输入时不显示字符，正常）`n" -ForegroundColor Yellow
         # 目标目录不存在时，scp 会直接创建它
         scp -r "$本地目录" "${用户名}@${服务器IP}:${远程目录}"
+    } elseif ($模式 -eq "只同步索引") {
+        Write-Host "`n[3/5] 只同步索引目录（识图缓存 / OCR 结果 / 检索索引）…" -ForegroundColor Cyan
+        Write-Host "      下一步会提示输入服务器 Administrator 密码`n" -ForegroundColor Yellow
+        $索引目录 = Join-Path $本地目录 "00-影像资料\索引"
+        if (-not (Test-Path $索引目录)) { throw "找不到索引目录：$索引目录" }
+        $目标 = "${用户名}@${服务器IP}:${远程目录}/00-影像资料/"
+        scp -r "$索引目录" $目标
     } else {
         Write-Host "`n[3/5] 开始上传（$模式）…" -ForegroundColor Cyan
         Write-Host "      下一步会提示输入服务器 Administrator 密码`n" -ForegroundColor Yellow
