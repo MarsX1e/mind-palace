@@ -125,6 +125,10 @@ video { width:100%; border-radius:10px; background:#000; max-height:46vh; }
       <label class="upbtn">📷 选择照片/视频上传（可多选）
         <input type="file" id="文件选择" accept="image/*,video/*" multiple style="display:none">
       </label>
+      <label class="upbtn" style="margin-top:8px">📄 上传文档（PDF / md / txt，可多选）
+        <input type="file" id="文档选择" accept=".pdf,.md,.txt,.markdown,application/pdf,text/plain,text/markdown" multiple style="display:none">
+      </label>
+      <div class="muted" style="margin-top:8px">文档会存到书籍目录（PDF）或笔记目录（md/txt），并自动加入检索索引</div>
       <div id="上传进度"></div>
       <div class="row"><button class="ghost" onclick="重新处理()">🔁 重新识图并更新索引</button></div>
       <div class="muted" id="任务日志" style="margin-top:8px"></div>
@@ -335,8 +339,8 @@ async function 保存描述(下一个){
   }catch(e){ toast("保存失败"); }
 }
 
-$("文件选择").addEventListener("change", async e=>{
-  const files = [...e.target.files]; if(!files.length) return;
+async function 上传文件们(files, 清空){
+  if(!files.length) return;
   const box = $("上传进度"); box.innerHTML="";
   let done=0;
   for(const f of files){
@@ -360,10 +364,14 @@ $("文件选择").addEventListener("change", async e=>{
       xhr.send(f);
     });
     done++;
-    if(!结果.跳过) toast(`已上传 ${done}/${files.length}`);
+    if(!结果.跳过) toast(`已上传 ${done}/${files.length}（${结果.类型||""}）`);
   }
-  e.target.value=""; 轮询任务();
-});
+  if(清空) 清空.value = "";
+  轮询任务();
+}
+
+$("文件选择").addEventListener("change", e=>上传文件们([...e.target.files], e.target));
+if($("文档选择")) $("文档选择").addEventListener("change", e=>上传文件们([...e.target.files], e.target));
 
 async function 重新处理(){ await api("/api/rebuild",{method:"POST"}); toast("已开始处理"); 轮询任务(); }
 

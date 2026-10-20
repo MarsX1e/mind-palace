@@ -228,31 +228,55 @@ async def 上传文件(filename: str, request: Request, _=Depends(校验密码))
     数据 = await request.body()
     扩展名 = os.path.splitext(filename)[1].lower()
     名 = os.path.basename(filename)
+    文档扩展名 = {".pdf", ".md", ".txt", ".markdown"}
     if 扩展名 in config.图片扩展名:
         目录, 类别 = config.照片目录, "照片"
     elif 扩展名 in config.视频扩展名:
         目录, 类别 = config.视频目录, "视频"
+    elif 扩展名 == ".pdf":
+        目录, 类别 = config.书籍目录, "书籍"
+    elif 扩展名 in 文档扩展名:
+        目录, 类别 = config.笔记目录, "笔记"
     else:
-        raise HTTPException(400, "不支持的文件类型")
+        raise HTTPException(400, "不支持的文件类型（支持：图片、视频、PDF、md、txt）")
 
     # ---------- 查重 ----------
-    表 = 指纹.读指纹()
-    新条目 = 指纹.图片指纹字节(数据) if 类别 == "照片" else 指纹.视频指纹字节(数据)
-    for 其他类别 in ("照片", "视频"):
-        for 已有名, 旧条目 in 表.get(其他类别, {}).items():
-            if 旧条目.get("md5") and 旧条目["md5"] == 新条目.get("md5"):
-                return {"ok": True, "状态": "重复", "跳过": True,
-                        "说明": f"与库里的 {已有名} 内容完全相同，已跳过"}
-            if 类别 == "照片" and 其他类别 == "照片" and 指纹.可能近似重复(新条目, 旧条目):
-                return {"ok": True, "状态": "重复", "跳过": True,
-                        "说明": f"与库里的 {已有名} 是同一张图（压缩或尺寸不同），已跳过"}
+    if 类别 in ("照片", "视频"):
+        表 = 指纹.读指纹()
+        新条目 = 指纹.图片指纹字节(数据) if 类别 == "照片" else 指纹.视频指纹字节(数据)
+        for 其他类别 in ("照片", "视频"):
+            for 已有名, 旧条目 in 表.get(其他类别, {}).items():
+                if 旧条目.get("md5") and 旧条目["md5"] == 新条目.get("md5"):
+                    return {"ok": True, "状态": "重复", "跳过": True,
+                            "说明": f"与库里的 {已有名} 内容完全相同，已跳过"}
+                if 类别 == "照片" and 其他类别 == "照片" and 指纹.可能近似重复(新条目, 旧条目):
+                    return {"ok": True, "状态": "重复", "跳过": True,
+                            "说明": f"与库里的 {已有名} 是同一张图（压缩或尺寸不同），已跳过"}
+    else:
+        # 文档查重：按内容 MD5 比对已有文档（只哈希大小相同的，避免无谓读取）
+        新md5 = 指纹.算md5字节(数据)
+        for 检查目录 in (config.书籍目录, config.笔记目录, config.素材目录):
+            for 根, _, 文件们 in os.walk(检查目录):
+                if os.path.basename(根) in ("pdf文本缓存", "thumbs"):
+                    continue
+                for 已有 in 文件们:
+                    if os.path.splitext(已有)[1].lower() not in 文档扩展名:
+                        continue
+                    路 = os.path.join(根, 已有)
+                    try:
+                        if os.path.getsize(路) == len(数据) and 指纹.算md5(路) == 新md5:
+                            return {"ok": True, "状态": "重复", "跳过": True,
+                                    "说明": f"与库里的 {已有} 内容完全相同，已跳过"}
+                    except Exception:
+                        continue
 
-    # ---------- 保存并登记指纹 ----------
+    # ---------- 保存 ----------
     目标 = os.path.join(目录, 名)
     with open(目标, "wb") as out:
         out.write(数据)
-    表.setdefault(类别, {})[名] = 新条目
-    指纹.存指纹(表)
+    if 类别 in ("照片", "视频"):
+        表.setdefault(类别, {})[名] = 新条目
+        指纹.存指纹(表)
 
     触发处理()
     return {"ok": True, "状态": "已保存", "类型": 类别, "处理中": 任务状态["运行中"]}
