@@ -372,6 +372,7 @@ def 检索索引状态(_=Depends(校验密码)):
         分类[块.get("类型", "其他")] = 分类.get(块.get("类型", "其他"), 0) + 1
     return {"段数": len(块们), "分类": 分类,
             "已建索引": bool(块们),
+            "警告": 读索引警告(),
             "运行中": 任务状态["运行中"], "日志": 任务状态["日志"]}
 
 
@@ -627,6 +628,35 @@ def 收集资料():
     return "\n\n".join(片段)
 
 
+def 读索引警告():
+    try:
+        with open(os.path.join(config.索引目录, "索引警告.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def 索引过期():
+    """资料文件的修改时间晚于索引建立时间 → 说明有新资料还没进索引"""
+    try:
+        索引时间 = os.path.getmtime(检索.块文件)
+    except Exception:
+        return False
+    后缀 = {".pdf", ".md", ".txt"}
+    最新 = 0
+    for 目录 in (config.书籍目录, config.笔记目录, config.素材目录):
+        for 根, _, 文件们 in os.walk(目录):
+            if os.path.basename(根) in ("pdf文本缓存", "thumbs"):
+                continue
+            for f in 文件们:
+                if os.path.splitext(f)[1].lower() in 后缀:
+                    try:
+                        最新 = max(最新, os.path.getmtime(os.path.join(根, f)))
+                    except Exception:
+                        pass
+    return 最新 > 索引时间 + 10
+
+
 @app.get("/api/search")
 def 查询(q: str, _=Depends(校验密码)):
     if not config.DeepSeekKey:
@@ -691,6 +721,16 @@ def 查询(q: str, _=Depends(校验密码)):
                 continue
     except Exception as e:
         return {"回答": f"查询失败：{e}", "照片": [], "视频": [], "书籍": [], "引用": []}
+
+    # 有资料比索引新 → 提示用户重建，避免"明明上传了却搜不到"
+    if 用了检索 and 索引过期():
+        回答 = ("⚠ 提示：检测到有资料是在建立检索索引之后才加入的（可能搜不到），"
+                "请到「上传」页点一下「建立/更新检索索引」。\n\n") + 回答
+    # 有资料提取不出文字 → 提示可能是扫描版
+    警告们 = 读索引警告()
+    if 警告们:
+        名字们 = "、".join(w.get("文件", "?") for w in 警告们[:5])
+        回答 = (f"⚠ 提示：以下资料没能加入检索（很可能是扫描版 PDF，需要 OCR）：{名字们}\n\n") + 回答
     # 附上描述用于标注，并过滤不存在的文件
     缓存 = 读识图缓存()
     照片 = [{"名": n, "描述": next((d for p, d in 缓存.items() if os.path.basename(p) == n), "")}

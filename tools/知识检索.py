@@ -51,6 +51,9 @@ PDF缓存目录 = os.path.join(索引目录, "pdf文本缓存")
 分批大小 = 8          # 每次请求送 8 段
 片段上限 = 900        # 每段字符数
 
+警告列表 = []          # 本次建索引时无法处理的资料（如扫描版 PDF）
+警告文件 = os.path.join(索引目录, "索引警告.json")
+
 
 def 读密钥():
     """优先 config.json，其次从识图脚本里取"""
@@ -106,17 +109,48 @@ def 切文本(文本, 上限=片段上限):
     return 块们
 
 
-def 切书籍PDF(路径):
-    """按页切，保留页码"""
+def 提取PDF文字(路径):
+    """按页提取 PDF 文字并写缓存（格式与 server/app.py 完全一致）；已缓存则直接复用"""
     import hashlib
     指纹 = hashlib.md5(("v2" + 路径 + str(os.path.getmtime(路径))).encode()).hexdigest()
     缓存 = os.path.join(PDF缓存目录, 指纹 + ".txt")
-    块们 = []
     if os.path.exists(缓存):
-        with open(缓存, encoding="utf-8") as f:
-            全文 = f.read()
-    else:
-        return 块们      # 还没提取过文字（可能是扫描版），跳过
+        try:
+            with open(缓存, encoding="utf-8") as f:
+                return f.read()
+        except Exception:
+            pass
+    try:
+        from pypdf import PdfReader
+        读 = PdfReader(路径)
+        页们 = []
+        for i, 页 in enumerate(读.pages):
+            if i >= 300:
+                break
+            文 = (页.extract_text() or "").strip()
+            if 文:
+                页们.append(f"【第{i + 1}页】\n{文}")
+        全文 = "\n\n".join(页们).strip()
+    except Exception:
+        全文 = ""
+    try:
+        os.makedirs(PDF缓存目录, exist_ok=True)
+        with open(缓存, "w", encoding="utf-8") as f:
+            f.write(全文)
+    except Exception:
+        pass
+    return 全文
+
+
+def 切书籍PDF(路径):
+    """按页切，保留页码；缓存缺失时自动提取，提取不出文字则记入警告"""
+    视频 = None
+    全文 = 提取PDF文字(路径)
+    块们 = []
+    if not 全文.strip():
+        警告列表.append({"文件": os.path.basename(路径),
+                     "原因": "提取不出文字（很可能是扫描版/图片型 PDF，需要 OCR）"})
+        return 块们
     页码 = None
     当前 = ""
     for 行 in 全文.splitlines():
@@ -265,6 +299,7 @@ def 收集源文件():
 def 建索引(全量=False, 打印=print):
     import numpy as np
 
+    警告列表.clear()
     密钥 = 读密钥()
     if not 密钥:
         打印("× 没有读到阿里云 Key，无法建立检索索引（请在 config.json 的 阿里云Key 里填写）")
@@ -351,6 +386,15 @@ def 建索引(全量=False, 打印=print):
         json.dump(新块们, f, ensure_ascii=False, indent=1)
     np.save(向量文件, 矩阵)
     存状态(状态)
+
+    # 记录无法处理的资料（扫描版 PDF 等），供界面提示
+    try:
+        with open(警告文件, "w", encoding="utf-8") as f:
+            json.dump(警告列表, f, ensure_ascii=False, indent=1)
+    except Exception:
+        pass
+    for 警告 in 警告列表:
+        打印(f"  ⚠ {警告['文件']}：{警告['原因']}")
 
     分类 = {}
     for 块 in 新块们:

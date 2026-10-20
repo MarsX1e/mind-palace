@@ -419,7 +419,11 @@ async function 轮询索引(){
       setTimeout(轮询索引, 3000);
     } else if(s.已建索引){
       const 分类 = Object.entries(s.分类||{}).map(([k,v])=>k+v).join("、");
-      $("索引状态").textContent = `✅ 检索索引：${s.段数} 段` + (分类?`（${分类}）`:"");
+      let 提示 = `✅ 检索索引：${s.段数} 段` + (分类?`（${分类}）`:"");
+      if(s.警告 && s.警告.length){
+        提示 += "<br>⚠ 未能加入索引：" + s.警告.map(w=>w.文件).join("、") + "（很可能是扫描版 PDF，需要 OCR）";
+      }
+      $("索引状态").innerHTML = 提示;
     } else {
       $("索引状态").textContent = "尚未建立检索索引（此时问答会用「全量资料」模式，资料多时可能不全）";
     }
