@@ -29,6 +29,7 @@ if config.脚本目录 not in _sys.path:
     _sys.path.insert(0, config.脚本目录)
 import 影像指纹 as 指纹  # noqa: E402  （去重指纹模块，放在 tools 目录）
 import 知识检索 as 检索  # noqa: E402  （向量检索模块，放在 tools 目录）
+import 文档指纹 as 文档  # noqa: E402  （文档去重模块，放在 tools 目录）
 
 app = FastAPI(title="思维殿堂")
 
@@ -374,6 +375,28 @@ def 检索索引状态(_=Depends(校验密码)):
             "已建索引": bool(块们),
             "警告": 读索引警告(),
             "运行中": 任务状态["运行中"], "日志": 任务状态["日志"]}
+
+
+# ---------------- 文档去重（按内容，不看文件名） ----------------
+@app.get("/api/docs/duplicates")
+def 文档查重(_=Depends(校验密码)):
+    表 = 文档.更新指纹(打印=lambda *_: None)
+    组 = 文档.找重复(表)
+    return {"组": [{"保留": k, "重复": v, "依据": y, "说明": s} for k, v, y, s in 组],
+            "总数": sum(len(v) for _, v, _, _ in 组)}
+
+
+@app.post("/api/docs/dedupe")
+def 文档清理(_=Depends(校验密码)):
+    表 = 文档.更新指纹(打印=lambda *_: None)
+    组 = 文档.找重复(表)
+    移动 = 0
+    for 保留, 重复们, _, _ in 组:
+        for 名 in 重复们:
+            if 文档.移到回收站(名):
+                移动 += 1
+    文档.更新指纹(打印=lambda *_: None)
+    return {"ok": True, "移动": 移动, "回收目录": 文档.回收目录}
 
 
 # ---------------- 照片文字识别（OCR） ----------------

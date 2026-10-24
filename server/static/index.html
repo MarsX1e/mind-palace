@@ -153,6 +153,15 @@ video { width:100%; border-radius:10px; background:#000; max-height:46vh; }
       <div class="row"><button class="ghost" onclick="重建指纹库()">重建指纹库（新导入的资料先点这个）</button></div>
       <div id="查重结果" style="margin-top:8px"></div>
     </div>
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:6px">📄 重复文档清理</div>
+      <div class="muted">按<span style="color:#2f6fed">内容</span>比对 PDF / md / txt，不看文件名。三层判断：文件字节相同 → 文字相同（不同来源下载的同一篇文章）→ 文字高度相似（小改过标题页眉）。确认后移入"已删除重复/文档"，可恢复。</div>
+      <div class="row">
+        <button class="ghost" onclick="扫描文档重复()">扫描重复文档</button>
+        <button onclick="清理文档重复()">清理文档</button>
+      </div>
+      <div id="文档查重结果" style="margin-top:8px"></div>
+    </div>
   </div>
 </main>
 
@@ -445,6 +454,28 @@ async function 轮询OCR(){
       $("OCR状态").textContent = `已处理 ${s.已处理} 张照片，其中 ${s.含文字} 张识别出文字`;
     }
   }catch(e){}
+}
+async function 扫描文档重复(){
+  $("文档查重结果").innerHTML = '<div class="muted">扫描中（首次需要提取所有文档的文字，可能几十秒）…</div>';
+  try{
+    const r = await api("/api/docs/duplicates");
+    if(!r.总数){ $("文档查重结果").innerHTML = '<div class="muted">✅ 没有发现重复文档</div>'; return; }
+    let html = '<div class="muted">发现 '+r.组.length+' 组重复，共 <b>'+r.总数+'</b> 个多余文档：</div>';
+    r.组.slice(0,30).forEach(g=>{
+      html += '<div style="margin-top:8px;font-size:13px"><b>保留：</b>'+g.保留
+        + '<br><span style="color:#8a8f99">依据：'+g.依据+' —— '+g.说明+'</span>'
+        + '<br><span style="color:#8a8f99">重复：'+g.重复.join("、")+'</span></div>';
+    });
+    html += '<div class="muted" style="margin-top:10px">确认无误后点「清理文档」，文件会移到 00-影像资料\\已删除重复\\文档\\，可随时恢复。</div>';
+    $("文档查重结果").innerHTML = html;
+  }catch(e){ $("文档查重结果").innerHTML = '<div class="muted">扫描失败：'+e.message+'</div>'; }
+}
+async function 清理文档重复(){
+  if(!confirm("确定把重复文档移入「已删除重复/文档」吗？（不会真正删除，可随时恢复）")) return;
+  try{
+    const r = await api("/api/docs/dedupe",{method:"POST"});
+    $("文档查重结果").innerHTML = '<div class="muted">✅ 已移动 <b>'+r.移动+'</b> 个重复文档到：<br>'+r.回收目录+'</div>';
+  }catch(e){ $("文档查重结果").innerHTML = '<div class="muted">清理失败：'+e.message+'</div>'; }
 }
 async function 轮询任务(){
   const t = await api("/api/tasks");
